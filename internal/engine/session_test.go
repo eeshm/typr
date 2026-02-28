@@ -10,11 +10,12 @@ func TestSessionTypingAndBackspace(t *testing.T) {
 	s := NewSession("abc", 0)
 
 	s.ApplyRune('a', start)
-	s.ApplyRune('x', start.Add(100*time.Millisecond))
+	s.ApplyRune('x', start.Add(100*time.Millisecond)) // wrong
 	if s.Cursor() != 2 {
 		t.Fatalf("expected cursor 2, got %d", s.Cursor())
 	}
 
+	// Backspace should undo the 'x' error from counts
 	s.Backspace()
 	if s.Cursor() != 1 {
 		t.Fatalf("expected cursor 1 after backspace, got %d", s.Cursor())
@@ -28,11 +29,16 @@ func TestSessionTypingAndBackspace(t *testing.T) {
 	}
 
 	m := s.Snapshot(start.Add(400*time.Millisecond), false, false)
-	if m.TotalTyped != 4 {
-		t.Fatalf("expected total typed 4, got %d", m.TotalTyped)
+	// After backspace undo: typed a, (x undone), b, c = 3 total
+	if m.TotalTyped != 3 {
+		t.Fatalf("expected total typed 3, got %d", m.TotalTyped)
 	}
-	if m.Errors != 1 {
-		t.Fatalf("expected 1 error, got %d", m.Errors)
+	// The 'x' error was undone by backspace, all 3 remaining are correct
+	if m.Errors != 0 {
+		t.Fatalf("expected 0 errors (backspace undid the mistake), got %d", m.Errors)
+	}
+	if m.Correct != 3 {
+		t.Fatalf("expected 3 correct, got %d", m.Correct)
 	}
 }
 

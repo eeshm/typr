@@ -79,7 +79,9 @@ func (m model) viewLive() string {
 
 	statsRows := []string{
 		fmt.Sprintf("WPM: %.1f", metrics.WPM),
+		fmt.Sprintf("Raw WPM: %.1f", metrics.RawWPM),
 		fmt.Sprintf("Accuracy: %.1f%%", metrics.Accuracy),
+		fmt.Sprintf("Words: %d/%d correct", metrics.CorrectWords, metrics.TotalWords),
 		fmt.Sprintf("Elapsed: %s", formatDuration(elapsed)),
 		fmt.Sprintf("Errors: %d", metrics.Errors),
 	}
@@ -119,8 +121,10 @@ func (m model) viewSummary() string {
 	body := strings.Join([]string{
 		titleStyle.Render("Typing Test Results"),
 		"",
-		fmt.Sprintf("Final WPM: %.1f", metrics.WPM),
+		fmt.Sprintf("WPM: %.1f", metrics.WPM),
+		fmt.Sprintf("Raw WPM: %.1f", metrics.RawWPM),
 		fmt.Sprintf("Accuracy: %.1f%%", metrics.Accuracy),
+		fmt.Sprintf("Correct Words: %d / %d", metrics.CorrectWords, metrics.TotalWords),
 		fmt.Sprintf("Total errors: %d", metrics.Errors),
 		fmt.Sprintf("Time taken: %s", formatDuration(metrics.TimeTaken)),
 		fmt.Sprintf("Tier: %s", performanceTier(metrics.WPM)),

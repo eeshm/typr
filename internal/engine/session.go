@@ -82,6 +82,20 @@ func (s *Session) Backspace() {
 		return
 	}
 	s.cursor--
+
+	// Undo the scoring for the character we're erasing.
+	// This prevents inflated totalTyped/errors when the user corrects mistakes.
+	if s.cursor < len(s.input) {
+		typed := s.input[s.cursor]
+		expected := s.target[s.cursor]
+		s.totalTyped--
+		if typed == expected {
+			s.correctTyped--
+		} else {
+			s.errors--
+		}
+	}
+
 	s.input = s.input[:s.cursor]
 	if !s.endTime.IsZero() {
 		s.endTime = time.Time{}
@@ -115,15 +129,19 @@ func (s *Session) Elapsed(now time.Time) time.Duration {
 
 func (s *Session) Snapshot(now time.Time, timedOut, cancelled bool) Metrics {
 	elapsed := s.Elapsed(now)
+	correctWords, totalWords := CountCorrectWords(s.target, s.input)
 	return Metrics{
-		WPM:        CalculateWPM(s.totalTyped, elapsed),
-		Accuracy:   CalculateAccuracy(s.correctTyped, s.totalTyped),
-		Errors:     s.errors,
-		TotalTyped: s.totalTyped,
-		Correct:    s.correctTyped,
-		TimeTaken:  elapsed,
-		Completed:  s.IsCompleted(),
-		TimedOut:   timedOut,
-		Cancelled:  cancelled,
+		WPM:          CalculateNetWPM(s.correctTyped, elapsed),
+		RawWPM:       CalculateRawWPM(s.totalTyped, elapsed),
+		Accuracy:     CalculateAccuracy(s.correctTyped, s.totalTyped),
+		Errors:       s.errors,
+		TotalTyped:   s.totalTyped,
+		Correct:      s.correctTyped,
+		CorrectWords: correctWords,
+		TotalWords:   totalWords,
+		TimeTaken:    elapsed,
+		Completed:    s.IsCompleted(),
+		TimedOut:     timedOut,
+		Cancelled:    cancelled,
 	}
 }
