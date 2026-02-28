@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -8,6 +9,7 @@ import (
 
 	"terminal-wpm/internal/content"
 	"terminal-wpm/internal/engine"
+	"terminal-wpm/internal/history"
 )
 
 // phase tracks which screen the TUI is showing.
@@ -63,6 +65,7 @@ type model struct {
 	timedOut  bool
 	cancelled bool
 	final     engine.Metrics
+	history   []history.Record
 	err       error
 }
 
@@ -118,6 +121,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.timedOut = true
 			m.phase = phaseDone
 			m.final = m.session.Snapshot(m.now, true, false)
+			m.saveHistory()
 			return m, nil
 		}
 		return m, tickCmd()
@@ -165,6 +169,7 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cancelled = true
 		m.phase = phaseDone
 		m.final = m.session.Snapshot(m.now, false, true)
+		m.saveHistory()
 		return m, nil
 	case "backspace", "ctrl+h":
 		m.session.Backspace()
@@ -173,7 +178,10 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(runes) == 1 {
 			r := runes[0]
 			if r >= 32 && r <= 126 {
-				m.session.ApplyRune(r, m.now)
+				if !m.session.ApplyRune(r, m.now) {
+					// Wrong key — emit terminal bell as error sound.
+					fmt.Print("\a")
+				}
 			}
 		}
 	}
@@ -181,12 +189,14 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.session.IsCompleted() {
 		m.phase = phaseDone
 		m.final = m.session.Snapshot(m.now, false, false)
+		m.saveHistory()
 		return m, nil
 	}
 	if m.cfg.TimeLimit > 0 && m.session.IsTimedOut(m.now) {
 		m.timedOut = true
 		m.phase = phaseDone
 		m.final = m.session.Snapshot(m.now, true, false)
+		m.saveHistory()
 	}
 	return m, nil
 }
@@ -199,6 +209,25 @@ func (m model) updateDone(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 	return m, nil
+}
+
+// saveHistory persists the current result and loads recent records for display.
+func (m *model) saveHistory() {
+	tier := performanceTier(m.final.WPM)
+	rec := history.Record{
+		Date:      time.Now(),
+		Mode:      m.cfg.Mode,
+		WordCount: m.cfg.WordCount,
+		WPM:       m.final.WPM,
+		RawWPM:    m.final.RawWPM,
+		Accuracy:  m.final.Accuracy,
+		Errors:    m.final.Errors,
+		TimeTaken: m.final.TimeTaken.Seconds(),
+		Completed: m.final.Completed,
+		Tier:      tier,
+	}
+	_ = history.Save(rec) // best-effort; don't block on save errors
+	m.history = history.Recent(5)
 }
 
 func (m model) View() string {

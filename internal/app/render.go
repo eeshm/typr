@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"terminal-wpm/internal/history"
 )
 
 const (
@@ -44,6 +46,13 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("63")).
 			Padding(1, 3)
+
+	historyStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("244")).
+			Padding(0, 2)
+
+	historyDimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
 	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 )
@@ -135,10 +144,15 @@ func (m model) viewSummary() string {
 	}, "\n")
 
 	boxed := finalStyle.Render(body)
+
+	// Append recent history below the result box.
+	historyBox := renderHistory(m.history)
+
+	combined := lipgloss.JoinVertical(lipgloss.Center, boxed, "", historyBox)
 	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, boxed)
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, combined)
 	}
-	return boxed
+	return combined
 }
 
 func renderTarget(target string, input []rune) string {
@@ -192,4 +206,22 @@ func performanceTier(wpm float64) string {
 	default:
 		return "Elite"
 	}
+}
+
+func renderHistory(records []history.Record) string {
+	if len(records) == 0 {
+		return historyStyle.Render(historyDimStyle.Render("No previous sessions yet."))
+	}
+
+	var rows []string
+	rows = append(rows, hintStyle.Render("Recent Sessions"))
+	rows = append(rows, historyDimStyle.Render(fmt.Sprintf("%-12s %6s %6s %7s %s", "Date", "WPM", "Raw", "Acc", "Tier")))
+
+	for _, r := range records {
+		dateStr := r.Date.Format("Jan 02 15:04")
+		line := fmt.Sprintf("%-12s %6.1f %6.1f %6.1f%% %s", dateStr, r.WPM, r.RawWPM, r.Accuracy, r.Tier)
+		rows = append(rows, historyDimStyle.Render(line))
+	}
+
+	return historyStyle.Render(strings.Join(rows, "\n"))
 }

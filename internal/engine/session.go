@@ -46,21 +46,23 @@ func (s *Session) TimeLimit() time.Duration {
 	return s.timeLimit
 }
 
-func (s *Session) ApplyRune(ch rune, now time.Time) {
+// ApplyRune types a character and returns true if it was correct.
+func (s *Session) ApplyRune(ch rune, now time.Time) bool {
 	if s.IsCompleted() {
-		return
+		return false
 	}
 	if !s.started {
 		s.started = true
 		s.startTime = now
 	}
 	if s.cursor >= len(s.target) {
-		return
+		return false
 	}
 
 	expected := s.target[s.cursor]
 	s.totalTyped++
-	if ch == expected {
+	correct := ch == expected
+	if correct {
 		s.correctTyped++
 	} else {
 		s.errors++
@@ -75,6 +77,7 @@ func (s *Session) ApplyRune(ch rune, now time.Time) {
 	if s.IsCompleted() {
 		s.endTime = now
 	}
+	return correct
 }
 
 func (s *Session) Backspace() {
