@@ -166,6 +166,15 @@ func (m model) viewSummary() string {
 			offset = maxScroll
 		}
 
+		if maxScroll == 0 {
+			// Content fits — center normally.
+			if m.width > 0 {
+				return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, combined)
+			}
+			return combined
+		}
+
+		// Content overflows — show windowed slice, no vertical re-centering.
 		end := offset + m.height
 		if end > totalLines {
 			end = totalLines
@@ -173,7 +182,8 @@ func (m model) viewSummary() string {
 		visible := strings.Join(lines[offset:end], "\n")
 
 		if m.width > 0 {
-			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, visible)
+			// Only center horizontally, fill full height so Bubble Tea doesn't jump.
+			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, visible)
 		}
 		return visible
 	}

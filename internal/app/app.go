@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -86,6 +87,15 @@ func tickCmd() tea.Cmd {
 	return tea.Tick(80*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
+}
+
+// beepCmd emits a terminal bell (BEL) to stderr so it doesn't interfere
+// with Bubble Tea's stdout rendering.
+func beepCmd() tea.Cmd {
+	return func() tea.Msg {
+		fmt.Fprint(os.Stderr, "\a")
+		return nil
+	}
 }
 
 // startTyping generates the text and transitions to the typing phase.
@@ -174,15 +184,14 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "backspace", "ctrl+h":
 		m.session.Backspace()
+		return m, beepCmd()
 	default:
 		runes := key.Runes
 		if len(runes) == 1 {
 			r := runes[0]
 			if r >= 32 && r <= 126 {
-				if !m.session.ApplyRune(r, m.now) {
-					// Wrong key — emit terminal bell as error sound.
-					fmt.Print("\a")
-				}
+				m.session.ApplyRune(r, m.now)
+				return m, beepCmd()
 			}
 		}
 	}
@@ -191,7 +200,7 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.phase = phaseDone
 		m.final = m.session.Snapshot(m.now, false, false)
 		m.saveHistory()
-		return m, nil
+		return m, beepCmd()
 	}
 	if m.cfg.TimeLimit > 0 && m.session.IsTimedOut(m.now) {
 		m.timedOut = true
