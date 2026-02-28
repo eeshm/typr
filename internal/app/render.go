@@ -101,14 +101,15 @@ func (m model) viewLive() string {
 	stats := statsStyle.Width(panelWidth).Render(strings.Join(statsRows, "\n"))
 	footer := hintStyle.Render("Backspace to correct • Ctrl+C to stop")
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, "", main, "", stats, "", footer)
+	content := lipgloss.JoinVertical(lipgloss.Left, header, "", main, "", stats, "", footer)
+	if m.width > 0 && m.height > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	}
+	return content
 }
 
 func (m model) viewSummary() string {
 	metrics := m.final
-	if metrics.TimeTaken == 0 {
-		metrics = m.session.Snapshot(m.now, m.timedOut, m.cancelled)
-	}
 
 	resultLabel := "Text completed"
 	if metrics.TimedOut {

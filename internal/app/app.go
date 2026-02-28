@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"terminal-wpm/internal/content"
 	"terminal-wpm/internal/engine"
@@ -202,7 +203,11 @@ func (m model) updateDone(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.err != nil {
-		return errorStyle.Render(m.err.Error())
+		errView := errorStyle.Render(m.err.Error()) + "\n" + hintStyle.Render("Press Ctrl+C to exit")
+		if m.width > 0 && m.height > 0 {
+			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, errView)
+		}
+		return errView
 	}
 	switch m.phase {
 	case phaseMenu:

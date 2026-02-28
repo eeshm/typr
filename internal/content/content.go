@@ -2,9 +2,8 @@ package content
 
 import (
 	"errors"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
-	"time"
 )
 
 var quoteWords = []string{
@@ -24,7 +23,6 @@ func RandomText(mode string, wordCount int) (string, error) {
 		return "", errors.New("word count must be greater than zero")
 	}
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	words := make([]string, 0, wordCount)
 
 	pool, err := wordPool(mode)
@@ -33,7 +31,7 @@ func RandomText(mode string, wordCount int) (string, error) {
 	}
 
 	for range wordCount {
-		words = append(words, pool[rng.Intn(len(pool))])
+		words = append(words, pool[rand.IntN(len(pool))])
 	}
 
 	return strings.Join(words, " "), nil
