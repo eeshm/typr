@@ -22,6 +22,9 @@ var (
 	endCursor    = lipgloss.NewStyle().Foreground(lipgloss.Color("16")).Background(lipgloss.Color("229")).Render(" ")
 	remainStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
+	selectedStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229")).Background(lipgloss.Color("63")).Padding(0, 2)
+	unselectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Padding(0, 2)
+
 	statsStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("63")).
@@ -37,8 +40,38 @@ var (
 			BorderForeground(lipgloss.Color("69")).
 			Padding(1, 3)
 
+	menuStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("63")).
+			Padding(1, 3)
+
 	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 )
+
+func (m model) viewMenu() string {
+	var rows []string
+	rows = append(rows, titleStyle.Render("Terminal WPM"))
+	rows = append(rows, "")
+	rows = append(rows, "Choose word count:")
+	rows = append(rows, "")
+
+	for i, opt := range wordOptions {
+		if i == m.menuIdx {
+			rows = append(rows, selectedStyle.Render("▸ "+opt.label))
+		} else {
+			rows = append(rows, unselectedStyle.Render("  "+opt.label))
+		}
+	}
+
+	rows = append(rows, "")
+	rows = append(rows, hintStyle.Render("↑/↓ to move • Enter to start • Ctrl+C to quit"))
+
+	box := menuStyle.Render(strings.Join(rows, "\n"))
+	if m.width > 0 && m.height > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	}
+	return box
+}
 
 func (m model) viewLive() string {
 	metrics := m.session.Snapshot(m.now, false, false)

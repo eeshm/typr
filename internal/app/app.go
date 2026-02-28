@@ -9,6 +9,26 @@ import (
 	"terminal-wpm/internal/engine"
 )
 
+// phase tracks which screen the TUI is showing.
+type phase int
+
+const (
+	phaseMenu   phase = iota // word-count selection
+	phaseTyping              // active typing test
+	phaseDone                // final results
+)
+
+// wordOption represents one selectable word-count choice.
+type wordOption struct {
+	label string
+	count int
+}
+
+var wordOptions = []wordOption{
+	{"30 words", 30},
+	{"60 words", 60},
+}
+
 type Config struct {
 	Mode      string
 	TimeLimit time.Duration
@@ -16,11 +36,7 @@ type Config struct {
 }
 
 func Run(cfg Config) error {
-	text, err := content.RandomText(cfg.Mode, cfg.WordCount)
-	if err != nil {
-		return err
-	}
-	m := newModel(cfg, text)
+	m := newModel(cfg)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
@@ -36,29 +52,29 @@ type tickMsg time.Time
 
 type model struct {
 	cfg       Config
+	phase     phase
+	menuIdx   int // currently highlighted menu option
 	target    string
 	session   *engine.Session
 	now       time.Time
 	width     int
 	height    int
-	done      bool
 	timedOut  bool
 	cancelled bool
 	final     engine.Metrics
 	err       error
 }
 
-func newModel(cfg Config, target string) model {
+func newModel(cfg Config) model {
 	return model{
-		cfg:     cfg,
-		target:  target,
-		session: engine.NewSession(target, cfg.TimeLimit),
-		now:     time.Now(),
+		cfg:   cfg,
+		phase: phaseMenu,
+		now:   time.Now(),
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return tickCmd()
+	return nil // no tick needed during menu
 }
 
 func tickCmd() tea.Cmd {
@@ -67,74 +83,133 @@ func tickCmd() tea.Cmd {
 	})
 }
 
+// startTyping generates the text and transitions to the typing phase.
+func (m *model) startTyping() tea.Cmd {
+	chosen := wordOptions[m.menuIdx]
+	m.cfg.WordCount = chosen.count
+
+	text, err := content.RandomText(m.cfg.Mode, m.cfg.WordCount)
+	if err != nil {
+		m.err = err
+		return nil
+	}
+
+	m.target = text
+	m.session = engine.NewSession(text, m.cfg.TimeLimit)
+	m.phase = phaseTyping
+	m.now = time.Now()
+	return tickCmd()
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch typed := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = typed.Width
 		m.height = typed.Height
 		return m, nil
+
 	case tickMsg:
-		m.now = time.Time(typed)
-		if !m.done && m.session.IsTimedOut(m.now) {
-			m.timedOut = true
-			m.done = true
-			m.final = m.session.Snapshot(m.now, true, false)
+		if m.phase != phaseTyping {
+			return m, nil
 		}
-		if m.done {
+		m.now = time.Time(typed)
+		if m.session.IsTimedOut(m.now) {
+			m.timedOut = true
+			m.phase = phaseDone
+			m.final = m.session.Snapshot(m.now, true, false)
 			return m, nil
 		}
 		return m, tickCmd()
+
 	case tea.KeyMsg:
-		if m.done {
-			switch typed.String() {
-			case "enter", "q", "esc", "ctrl+c":
-				return m, tea.Quit
-			default:
-				return m, nil
-			}
+		switch m.phase {
+		case phaseMenu:
+			return m.updateMenu(typed)
+		case phaseTyping:
+			return m.updateTyping(typed)
+		case phaseDone:
+			return m.updateDone(typed)
 		}
+	}
+	return m, nil
+}
 
-		m.now = time.Now()
-		switch typed.String() {
-		case "ctrl+c":
-			m.cancelled = true
-			m.done = true
-			m.final = m.session.Snapshot(m.now, false, true)
-			return m, nil
-		case "backspace", "ctrl+h":
-			m.session.Backspace()
-		default:
-			runes := typed.Runes
-			if len(runes) == 1 {
-				r := runes[0]
-				if r >= 32 && r <= 126 {
-					m.session.ApplyRune(r, m.now)
-				}
-			}
-		}
+// --- menu phase input ---
 
-		if m.session.IsCompleted() {
-			m.done = true
-			m.final = m.session.Snapshot(m.now, false, false)
-			return m, nil
+func (m model) updateMenu(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch key.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "up", "k":
+		if m.menuIdx > 0 {
+			m.menuIdx--
 		}
-		if m.cfg.TimeLimit > 0 && m.session.IsTimedOut(m.now) {
-			m.timedOut = true
-			m.done = true
-			m.final = m.session.Snapshot(m.now, true, false)
+	case "down", "j":
+		if m.menuIdx < len(wordOptions)-1 {
+			m.menuIdx++
 		}
+	case "enter", " ":
+		cmd := m.startTyping()
+		return m, cmd
+	}
+	return m, nil
+}
+
+// --- typing phase input ---
+
+func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.now = time.Now()
+	switch key.String() {
+	case "ctrl+c":
+		m.cancelled = true
+		m.phase = phaseDone
+		m.final = m.session.Snapshot(m.now, false, true)
 		return m, nil
+	case "backspace", "ctrl+h":
+		m.session.Backspace()
 	default:
+		runes := key.Runes
+		if len(runes) == 1 {
+			r := runes[0]
+			if r >= 32 && r <= 126 {
+				m.session.ApplyRune(r, m.now)
+			}
+		}
+	}
+
+	if m.session.IsCompleted() {
+		m.phase = phaseDone
+		m.final = m.session.Snapshot(m.now, false, false)
 		return m, nil
 	}
+	if m.cfg.TimeLimit > 0 && m.session.IsTimedOut(m.now) {
+		m.timedOut = true
+		m.phase = phaseDone
+		m.final = m.session.Snapshot(m.now, true, false)
+	}
+	return m, nil
+}
+
+// --- done phase input ---
+
+func (m model) updateDone(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch key.String() {
+	case "enter", "q", "esc", "ctrl+c":
+		return m, tea.Quit
+	}
+	return m, nil
 }
 
 func (m model) View() string {
 	if m.err != nil {
 		return errorStyle.Render(m.err.Error())
 	}
-	if m.done {
+	switch m.phase {
+	case phaseMenu:
+		return m.viewMenu()
+	case phaseDone:
 		return m.viewSummary()
+	default:
+		return m.viewLive()
 	}
-	return m.viewLive()
 }
