@@ -1,4 +1,4 @@
-# terminal-wpm
+# typr
 
 A production-style terminal typing speed test CLI in Go.
 
