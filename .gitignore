@@ -1,0 +1,4 @@
+terminal-wpm.exe
+*.out
+*.test
+coverage.txt
