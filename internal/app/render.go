@@ -18,7 +18,8 @@ var (
 
 	correctStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 	wrongStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	currentStyle = lipgloss.NewStyle().Underline(true).Foreground(lipgloss.Color("229"))
+	currentStyle = lipgloss.NewStyle().Underline(true).Foreground(lipgloss.Color("16")).Background(lipgloss.Color("229"))
+	endCursor    = lipgloss.NewStyle().Foreground(lipgloss.Color("16")).Background(lipgloss.Color("229")).Render(" ")
 	remainStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
 	statsStyle = lipgloss.NewStyle().
@@ -58,7 +59,7 @@ func (m model) viewLive() string {
 	}
 
 	header := titleStyle.Render("Terminal WPM") + "\n" +
-		hintStyle.Render(fmt.Sprintf("Mode: %s  •  Start typing to begin timer", m.cfg.Mode))
+		hintStyle.Render(fmt.Sprintf("Mode: %s  •  Words: %d  •  Start typing to begin timer", m.cfg.Mode, m.cfg.WordCount))
 
 	typedText := renderTarget(m.target, m.session.Input())
 	main := textStyle.Width(panelWidth).Render(typedText)
@@ -115,10 +116,18 @@ func renderTarget(target string, input []rune) string {
 				builder.WriteString(wrongStyle.Render(string(r)))
 			}
 		} else if i == cursor {
-			builder.WriteString(currentStyle.Render(string(r)))
+			if r == ' ' {
+				builder.WriteString(currentStyle.Render("·"))
+			} else {
+				builder.WriteString(currentStyle.Render(string(r)))
+			}
 		} else {
 			builder.WriteString(remainStyle.Render(string(r)))
 		}
+	}
+
+	if cursor >= len(targetRunes) {
+		builder.WriteString(endCursor)
 	}
 
 	return builder.String()

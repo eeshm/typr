@@ -5,14 +5,15 @@ A production-style terminal typing speed test CLI in Go, built to help you learn
 ## Features
 - Structured TUI loop powered by Bubble Tea (smooth in-place updates)
 - Styling and color rendering via Lip Gloss
-- Random text at start (`quote` or `code` mode)
+- Random word test generated at start (`quote` or `code` word bank)
+- Startup prompt to choose `30` or `60` words each run
 - Starts timing on first typed character
 - Real-time key capture (no Enter needed)
 - Backspace support
 - Live colored feedback:
   - Green = correct
   - Red = incorrect
-  - Underlined = current target character
+  - Highlighted cursor block + underline = current target character
   - Dim gray = remaining characters
 - Live stats:
   - WPM
@@ -60,6 +61,12 @@ Examples:
 ```powershell
 go run ./cmd/terminal-wpm --mode quote
 go run ./cmd/terminal-wpm --mode code --time 60
+```
+
+You will be prompted each run:
+
+```text
+Choose word count [30/60]:
 ```
 
 ## WPM & Accuracy formula

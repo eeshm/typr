@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"terminal-wpm/internal/app"
@@ -33,13 +35,39 @@ func main() {
 		os.Exit(2)
 	}
 
+	wordCount, err := promptWordCount()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "failed to read word count:", err)
+		os.Exit(1)
+	}
+
 	cfg := app.Config{
 		Mode:      mode,
 		TimeLimit: time.Duration(seconds) * time.Second,
+		WordCount: wordCount,
 	}
 
 	if err := app.Run(cfg); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
+	}
+}
+
+func promptWordCount() (int, error) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("Choose word count [30/60]: ")
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return 0, err
+		}
+		switch strings.TrimSpace(input) {
+		case "30":
+			return 30, nil
+		case "60":
+			return 60, nil
+		default:
+			fmt.Println("Please enter only 30 or 60.")
+		}
 	}
 }

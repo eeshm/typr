@@ -12,10 +12,11 @@ import (
 type Config struct {
 	Mode      string
 	TimeLimit time.Duration
+	WordCount int
 }
 
 func Run(cfg Config) error {
-	text, err := content.RandomText(cfg.Mode)
+	text, err := content.RandomText(cfg.Mode, cfg.WordCount)
 	if err != nil {
 		return err
 	}

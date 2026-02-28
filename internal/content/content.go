@@ -3,32 +3,49 @@ package content
 import (
 	"errors"
 	"math/rand"
+	"strings"
 	"time"
 )
 
-var quotes = []string{
-	"Small daily improvements over time lead to stunning results.",
-	"Simplicity is the soul of efficiency in both code and life.",
-	"Focus on consistency first; speed follows naturally.",
-	"Ship one clear thing well before chasing many things poorly.",
+var quoteWords = []string{
+	"focus", "habit", "steady", "practice", "moment", "clarity", "rhythm", "progress", "simple", "calm",
+	"result", "daily", "effort", "learn", "repeat", "strong", "patience", "consistency", "skill", "growth",
+	"speed", "accuracy", "discipline", "improve", "craft", "quality", "mindset", "builder", "future", "master",
 }
 
-var codeSnippets = []string{
-	"for i := 0; i < len(items); i++ { if items[i]%2 == 0 { total += items[i] } }",
-	"const greet = (name) => { return `Hello, ${name}!`; }; console.log(greet('dev'));",
-	"if err != nil { return fmt.Errorf(\"save failed: %w\", err) }",
-	"function debounce(fn, ms){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; }",
+var codeWords = []string{
+	"func", "return", "error", "nil", "range", "slice", "map", "struct", "interface", "goroutine",
+	"channel", "mutex", "context", "package", "module", "compile", "testing", "pointer", "method", "receiver",
+	"import", "deploy", "commit", "branch", "refactor", "backend", "frontend", "async", "buffer", "runtime",
 }
 
-func RandomText(mode string) (string, error) {
+func RandomText(mode string, wordCount int) (string, error) {
+	if wordCount <= 0 {
+		return "", errors.New("word count must be greater than zero")
+	}
+
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	words := make([]string, 0, wordCount)
 
+	pool, err := wordPool(mode)
+	if err != nil {
+		return "", err
+	}
+
+	for range wordCount {
+		words = append(words, pool[rng.Intn(len(pool))])
+	}
+
+	return strings.Join(words, " "), nil
+}
+
+func wordPool(mode string) ([]string, error) {
 	switch mode {
 	case "quote":
-		return quotes[rng.Intn(len(quotes))], nil
+		return quoteWords, nil
 	case "code":
-		return codeSnippets[rng.Intn(len(codeSnippets))], nil
+		return codeWords, nil
 	default:
-		return "", errors.New("unsupported mode")
+		return nil, errors.New("unsupported mode")
 	}
 }
