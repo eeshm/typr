@@ -102,7 +102,7 @@ git push origin v1.0.0
 Release artifacts are uploaded automatically to the GitHub Release for that tag.
 
 ## Publish to npm
-An npm wrapper package is provided at `npm/terminal-wpm`.
+An npm wrapper package is provided at `npm/typr`.
 
 ### One-time setup
 - Create an npm automation token and add it as GitHub secret: `NPM_TOKEN`
