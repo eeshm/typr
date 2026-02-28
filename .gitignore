@@ -1,4 +1,25 @@
+# Binary
 terminal-wpm.exe
+terminal-wpm
+
+# Test artifacts
 *.out
 *.test
 coverage.txt
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Go build cache (usually outside project, but just in case)
+vendor/
+
+# Plan / prompt files
+*.prompt.md
