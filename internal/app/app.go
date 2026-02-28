@@ -41,7 +41,7 @@ type Config struct {
 
 func Run(cfg Config) error {
 	m := newModel(cfg)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ type model struct {
 	cancelled bool
 	final     engine.Metrics
 	history   []history.Record
-	scrollY   int // scroll offset for results screen
+	scrollY   int // vertical scroll offset (shared across all views)
 	err       error
 }
 
@@ -112,6 +112,7 @@ func (m *model) startTyping() tea.Cmd {
 	m.target = text
 	m.session = engine.NewSession(text, m.cfg.TimeLimit)
 	m.phase = phaseTyping
+	m.scrollY = 0
 	m.now = time.Now()
 	return tickCmd()
 }
@@ -123,6 +124,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = typed.Height
 		return m, nil
 
+	case tea.MouseMsg:
+		// Handle mouse wheel scrolling in all phases.
+		switch typed.Button {
+		case tea.MouseButtonWheelUp:
+			if m.scrollY > 0 {
+				m.scrollY--
+			}
+			return m, nil
+		case tea.MouseButtonWheelDown:
+			m.scrollY++
+			return m, nil
+		}
+
 	case tickMsg:
 		if m.phase != phaseTyping {
 			return m, nil
@@ -131,6 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.session.IsTimedOut(m.now) {
 			m.timedOut = true
 			m.phase = phaseDone
+			m.scrollY = 0
 			m.final = m.session.Snapshot(m.now, true, false)
 			m.saveHistory()
 			return m, nil
@@ -138,6 +153,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd()
 
 	case tea.KeyMsg:
+		// Handle scroll keys (pgup/pgdn) in all phases.
+		switch typed.String() {
+		case "pgup":
+			if m.scrollY > 0 {
+				m.scrollY -= 5
+				if m.scrollY < 0 {
+					m.scrollY = 0
+				}
+			}
+			return m, nil
+		case "pgdown":
+			m.scrollY += 5
+			return m, nil
+		}
+
 		switch m.phase {
 		case phaseMenu:
 			return m.updateMenu(typed)
@@ -179,6 +209,7 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		m.cancelled = true
 		m.phase = phaseDone
+		m.scrollY = 0
 		m.final = m.session.Snapshot(m.now, false, true)
 		m.saveHistory()
 		return m, nil
@@ -198,6 +229,7 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.session.IsCompleted() {
 		m.phase = phaseDone
+		m.scrollY = 0
 		m.final = m.session.Snapshot(m.now, false, false)
 		m.saveHistory()
 		return m, beepCmd()
@@ -205,6 +237,7 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.cfg.TimeLimit > 0 && m.session.IsTimedOut(m.now) {
 		m.timedOut = true
 		m.phase = phaseDone
+		m.scrollY = 0
 		m.final = m.session.Snapshot(m.now, true, false)
 		m.saveHistory()
 	}

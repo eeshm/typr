@@ -76,10 +76,7 @@ func (m model) viewMenu() string {
 	rows = append(rows, hintStyle.Render("↑/↓ to move • Enter to start • Ctrl+C to quit"))
 
 	box := menuStyle.Render(strings.Join(rows, "\n"))
-	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
-	}
-	return box
+	return m.applyScroll(box)
 }
 
 func (m model) viewLive() string {
@@ -111,10 +108,7 @@ func (m model) viewLive() string {
 	footer := hintStyle.Render("Backspace to correct • Ctrl+C to stop")
 
 	content := lipgloss.JoinVertical(lipgloss.Left, header, "", main, "", stats, "", footer)
-	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-	}
-	return content
+	return m.applyScroll(content)
 }
 
 func (m model) viewSummary() string {
@@ -150,44 +144,7 @@ func (m model) viewSummary() string {
 
 	scrollHint := hintStyle.Render("↑/↓ to scroll")
 	combined := lipgloss.JoinVertical(lipgloss.Center, boxed, "", historyBox, "", scrollHint)
-
-	// Apply vertical scrolling when content exceeds terminal height.
-	if m.height > 0 {
-		lines := strings.Split(combined, "\n")
-		totalLines := len(lines)
-
-		// Clamp scroll so we don't scroll past the end.
-		maxScroll := totalLines - m.height
-		if maxScroll < 0 {
-			maxScroll = 0
-		}
-		offset := m.scrollY
-		if offset > maxScroll {
-			offset = maxScroll
-		}
-
-		if maxScroll == 0 {
-			// Content fits — center normally.
-			if m.width > 0 {
-				return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, combined)
-			}
-			return combined
-		}
-
-		// Content overflows — show windowed slice, no vertical re-centering.
-		end := offset + m.height
-		if end > totalLines {
-			end = totalLines
-		}
-		visible := strings.Join(lines[offset:end], "\n")
-
-		if m.width > 0 {
-			// Only center horizontally, fill full height so Bubble Tea doesn't jump.
-			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, visible)
-		}
-		return visible
-	}
-	return combined
+	return m.applyScroll(combined)
 }
 
 func renderTarget(target string, input []rune) string {
@@ -259,4 +216,45 @@ func renderHistory(records []history.Record) string {
 	}
 
 	return historyStyle.Render(strings.Join(rows, "\n"))
+}
+
+// applyScroll handles vertical scrolling and centering for any view content.
+// If content fits the terminal, it centers normally. If it overflows, it
+// windows the visible lines based on m.scrollY.
+func (m model) applyScroll(content string) string {
+	if m.height <= 0 {
+		return content
+	}
+
+	lines := strings.Split(content, "\n")
+	totalLines := len(lines)
+
+	maxScroll := totalLines - m.height
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+
+	// Content fits — center normally.
+	if maxScroll == 0 {
+		if m.width > 0 {
+			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+		}
+		return content
+	}
+
+	// Content overflows — apply scroll offset.
+	offset := m.scrollY
+	if offset > maxScroll {
+		offset = maxScroll
+	}
+	end := offset + m.height
+	if end > totalLines {
+		end = totalLines
+	}
+	visible := strings.Join(lines[offset:end], "\n")
+
+	if m.width > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, visible)
+	}
+	return visible
 }
