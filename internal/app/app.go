@@ -1,8 +1,6 @@
 package app
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,6 +9,7 @@ import (
 	"terminal-wpm/internal/content"
 	"terminal-wpm/internal/engine"
 	"terminal-wpm/internal/history"
+	"terminal-wpm/internal/sound"
 )
 
 // phase tracks which screen the TUI is showing.
@@ -40,6 +39,9 @@ type Config struct {
 }
 
 func Run(cfg Config) error {
+	// Initialize audio (best-effort; app works without sound).
+	_ = sound.Init()
+
 	m := newModel(cfg)
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
@@ -89,11 +91,18 @@ func tickCmd() tea.Cmd {
 	})
 }
 
-// beepCmd emits a terminal bell (BEL) to stderr so it doesn't interfere
-// with Bubble Tea's stdout rendering.
-func beepCmd() tea.Cmd {
+// clickCmd plays a keyboard click sound without blocking the TUI.
+func clickCmd() tea.Cmd {
 	return func() tea.Msg {
-		fmt.Fprint(os.Stderr, "\a")
+		sound.PlayClick()
+		return nil
+	}
+}
+
+// errorSoundCmd plays a short error buzz without blocking the TUI.
+func errorSoundCmd() tea.Cmd {
+	return func() tea.Msg {
+		sound.PlayError()
 		return nil
 	}
 }
@@ -215,14 +224,17 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "backspace", "ctrl+h":
 		m.session.Backspace()
-		return m, beepCmd()
+		return m, clickCmd()
 	default:
 		runes := key.Runes
 		if len(runes) == 1 {
 			r := runes[0]
 			if r >= 32 && r <= 126 {
-				m.session.ApplyRune(r, m.now)
-				return m, beepCmd()
+				correct := m.session.ApplyRune(r, m.now)
+				if correct {
+					return m, clickCmd()
+				}
+				return m, errorSoundCmd()
 			}
 		}
 	}
@@ -232,7 +244,7 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.scrollY = 0
 		m.final = m.session.Snapshot(m.now, false, false)
 		m.saveHistory()
-		return m, beepCmd()
+		return m, clickCmd()
 	}
 	if m.cfg.TimeLimit > 0 && m.session.IsTimedOut(m.now) {
 		m.timedOut = true
