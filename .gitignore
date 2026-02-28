@@ -13,7 +13,7 @@ coverage.txt
 *.swp
 *.swo
 *~
-
+ARCHITECTURE.md
 # OS files
 Thumbs.db
 .DS_Store
