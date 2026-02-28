@@ -224,21 +224,18 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "backspace", "ctrl+h":
 		m.session.Backspace()
-		return m, clickCmd()
 	default:
 		runes := key.Runes
 		if len(runes) == 1 {
 			r := runes[0]
 			if r >= 32 && r <= 126 {
-				correct := m.session.ApplyRune(r, m.now)
-				if correct {
-					return m, clickCmd()
-				}
-				return m, errorSoundCmd()
+				m.session.ApplyRune(r, m.now)
 			}
 		}
 	}
 
+	// Check completion/timeout BEFORE deciding which sound to play,
+	// so the test finishes immediately when the last character is typed.
 	if m.session.IsCompleted() {
 		m.phase = phaseDone
 		m.scrollY = 0
@@ -253,7 +250,7 @@ func (m model) updateTyping(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.final = m.session.Snapshot(m.now, true, false)
 		m.saveHistory()
 	}
-	return m, nil
+	return m, clickCmd()
 }
 
 // --- done phase input ---
