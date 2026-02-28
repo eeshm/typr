@@ -93,3 +93,21 @@ This project demonstrates:
 go test ./...
 go vet ./...
 ```
+
+## Publish (GitHub Releases)
+This repo is configured with GoReleaser + GitHub Actions.
+
+1. Commit and push all changes.
+2. Create a semantic version tag:
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+3. GitHub Actions runs `.github/workflows/release.yml` and publishes binaries for:
+  - Windows (`amd64`, `arm64`)
+  - Linux (`amd64`, `arm64`)
+  - macOS (`amd64`, `arm64`)
+
+Release artifacts are uploaded automatically to the GitHub Release for that tag.

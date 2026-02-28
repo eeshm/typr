@@ -1,6 +1,9 @@
 # Binary
 terminal-wpm.exe
 terminal-wpm
+dist/
+artifacts/
+checksums.txt
 
 # Test artifacts
 *.out
