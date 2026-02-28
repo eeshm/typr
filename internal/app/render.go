@@ -148,9 +148,34 @@ func (m model) viewSummary() string {
 	// Append recent history below the result box.
 	historyBox := renderHistory(m.history)
 
-	combined := lipgloss.JoinVertical(lipgloss.Center, boxed, "", historyBox)
-	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, combined)
+	scrollHint := hintStyle.Render("↑/↓ to scroll")
+	combined := lipgloss.JoinVertical(lipgloss.Center, boxed, "", historyBox, "", scrollHint)
+
+	// Apply vertical scrolling when content exceeds terminal height.
+	if m.height > 0 {
+		lines := strings.Split(combined, "\n")
+		totalLines := len(lines)
+
+		// Clamp scroll so we don't scroll past the end.
+		maxScroll := totalLines - m.height
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		offset := m.scrollY
+		if offset > maxScroll {
+			offset = maxScroll
+		}
+
+		end := offset + m.height
+		if end > totalLines {
+			end = totalLines
+		}
+		visible := strings.Join(lines[offset:end], "\n")
+
+		if m.width > 0 {
+			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, visible)
+		}
+		return visible
 	}
 	return combined
 }

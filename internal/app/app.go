@@ -66,6 +66,7 @@ type model struct {
 	cancelled bool
 	final     engine.Metrics
 	history   []history.Record
+	scrollY   int // scroll offset for results screen
 	err       error
 }
 
@@ -207,6 +208,12 @@ func (m model) updateDone(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "enter", "q", "esc", "ctrl+c":
 		return m, tea.Quit
+	case "up", "k":
+		if m.scrollY > 0 {
+			m.scrollY--
+		}
+	case "down", "j":
+		m.scrollY++
 	}
 	return m, nil
 }
