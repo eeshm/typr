@@ -1,16 +1,12 @@
 package app
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"terminal-wpm/internal/content"
 	"terminal-wpm/internal/engine"
-	"terminal-wpm/internal/terminal"
 )
 
 type Config struct {
@@ -23,96 +19,121 @@ func Run(cfg Config) error {
 	if err != nil {
 		return err
 	}
-
-	cons := terminal.New()
-	if err := cons.Init(); err != nil {
+	m := newModel(cfg, text)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = cons.Restore()
-		terminal.ShowCursor()
-		fmt.Print("\n")
-	}()
-
-	terminal.HideCursor()
-	terminal.ClearScreen()
-
-	sess := engine.NewSession(text, cfg.TimeLimit)
-	keyCh := make(chan terminal.KeyEvent, 32)
-	errCh := make(chan error, 1)
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigCh)
-
-	go func() {
-		for {
-			key, readErr := cons.ReadKey()
-			if readErr != nil {
-				errCh <- readErr
-				return
-			}
-			keyCh <- key
-		}
-	}()
-
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
-
-	cancelled := false
-	timedOut := false
-	ended := false
-
-	renderNow := func(now time.Time) {
-		terminal.MoveHome()
-		terminal.EraseDisplay()
-		metrics := sess.Snapshot(now, timedOut, cancelled)
-		remaining := cfg.TimeLimit - sess.Elapsed(now)
-		renderLive(cfg.Mode, text, sess.Input(), metrics, remaining, cfg.TimeLimit > 0)
+	if resolved, ok := finalModel.(model); ok {
+		return resolved.err
 	}
-
-	renderNow(time.Now())
-
-	for !ended {
-		select {
-		case <-ticker.C:
-			now := time.Now()
-			if sess.IsTimedOut(now) {
-				timedOut = true
-				ended = true
-			}
-			renderNow(now)
-		case sig := <-sigCh:
-			if sig != nil {
-				cancelled = true
-				ended = true
-			}
-		case readErr := <-errCh:
-			if errors.Is(readErr, os.ErrClosed) {
-				ended = true
-				break
-			}
-			return fmt.Errorf("input error: %w", readErr)
-		case key := <-keyCh:
-			now := time.Now()
-			switch key.Type {
-			case terminal.KeyCtrlC:
-				cancelled = true
-				ended = true
-			case terminal.KeyBackspace:
-				sess.Backspace()
-			case terminal.KeyRune:
-				sess.ApplyRune(key.Rune, now)
-			}
-
-			if sess.IsCompleted() {
-				ended = true
-			}
-			renderNow(now)
-		}
-	}
-
-	terminal.ClearScreen()
-	final := sess.Snapshot(time.Now(), timedOut, cancelled)
-	renderSummary(final)
 	return nil
+}
+
+type tickMsg time.Time
+
+type model struct {
+	cfg       Config
+	target    string
+	session   *engine.Session
+	now       time.Time
+	width     int
+	height    int
+	done      bool
+	timedOut  bool
+	cancelled bool
+	final     engine.Metrics
+	err       error
+}
+
+func newModel(cfg Config, target string) model {
+	return model{
+		cfg:     cfg,
+		target:  target,
+		session: engine.NewSession(target, cfg.TimeLimit),
+		now:     time.Now(),
+	}
+}
+
+func (m model) Init() tea.Cmd {
+	return tickCmd()
+}
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(80*time.Millisecond, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch typed := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = typed.Width
+		m.height = typed.Height
+		return m, nil
+	case tickMsg:
+		m.now = time.Time(typed)
+		if !m.done && m.session.IsTimedOut(m.now) {
+			m.timedOut = true
+			m.done = true
+			m.final = m.session.Snapshot(m.now, true, false)
+		}
+		if m.done {
+			return m, nil
+		}
+		return m, tickCmd()
+	case tea.KeyMsg:
+		if m.done {
+			switch typed.String() {
+			case "enter", "q", "esc", "ctrl+c":
+				return m, tea.Quit
+			default:
+				return m, nil
+			}
+		}
+
+		m.now = time.Now()
+		switch typed.String() {
+		case "ctrl+c":
+			m.cancelled = true
+			m.done = true
+			m.final = m.session.Snapshot(m.now, false, true)
+			return m, nil
+		case "backspace", "ctrl+h":
+			m.session.Backspace()
+		default:
+			runes := typed.Runes
+			if len(runes) == 1 {
+				r := runes[0]
+				if r >= 32 && r <= 126 {
+					m.session.ApplyRune(r, m.now)
+				}
+			}
+		}
+
+		if m.session.IsCompleted() {
+			m.done = true
+			m.final = m.session.Snapshot(m.now, false, false)
+			return m, nil
+		}
+		if m.cfg.TimeLimit > 0 && m.session.IsTimedOut(m.now) {
+			m.timedOut = true
+			m.done = true
+			m.final = m.session.Snapshot(m.now, true, false)
+		}
+		return m, nil
+	default:
+		return m, nil
+	}
+}
+
+func (m model) View() string {
+	if m.err != nil {
+		return errorStyle.Render(m.err.Error())
+	}
+	if m.done {
+		return m.viewSummary()
+	}
+	return m.viewLive()
 }

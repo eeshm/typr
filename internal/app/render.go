@@ -5,70 +5,119 @@ import (
 	"strings"
 	"time"
 
-	"terminal-wpm/internal/engine"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const (
-	colorReset = "\x1b[0m"
-	colorGreen = "\x1b[32m"
-	colorRed   = "\x1b[31m"
-	colorCyan  = "\x1b[36m"
-	colorGray  = "\x1b[90m"
+	panelWidth = 72
 )
 
-func renderLive(mode, target string, input []rune, metrics engine.Metrics, remaining time.Duration, hasLimit bool) {
-	fmt.Printf("%sTerminal WPM Test%s\n", colorCyan, colorReset)
-	fmt.Printf("Mode: %s\n", mode)
-	if hasLimit {
+var (
+	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
+	hintStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+	correctStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+	wrongStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	currentStyle = lipgloss.NewStyle().Underline(true).Foreground(lipgloss.Color("229"))
+	remainStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	statsStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("63")).
+			Padding(0, 1)
+
+	textStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("238")).
+			Padding(1, 1)
+
+	finalStyle = lipgloss.NewStyle().
+			Border(lipgloss.DoubleBorder()).
+			BorderForeground(lipgloss.Color("69")).
+			Padding(1, 3)
+
+	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+)
+
+func (m model) viewLive() string {
+	metrics := m.session.Snapshot(m.now, false, false)
+	elapsed := m.session.Elapsed(m.now)
+
+	statsRows := []string{
+		fmt.Sprintf("WPM: %.1f", metrics.WPM),
+		fmt.Sprintf("Accuracy: %.1f%%", metrics.Accuracy),
+		fmt.Sprintf("Elapsed: %s", formatDuration(elapsed)),
+		fmt.Sprintf("Errors: %d", metrics.Errors),
+	}
+	if m.cfg.TimeLimit > 0 {
+		remaining := m.cfg.TimeLimit - elapsed
 		if remaining < 0 {
 			remaining = 0
 		}
-		fmt.Printf("Time left: %s\n", formatDuration(remaining))
+		statsRows = append(statsRows, fmt.Sprintf("Time Left: %s", formatDuration(remaining)))
 	}
-	fmt.Println(strings.Repeat("-", 70))
-	fmt.Println("Type the text below:")
-	fmt.Println(renderTarget(target, input))
-	fmt.Println(strings.Repeat("-", 70))
-	fmt.Printf("WPM: %.1f | Accuracy: %.1f%% | Errors: %d\n", metrics.WPM, metrics.Accuracy, metrics.Errors)
-	fmt.Println("Backspace to correct. Ctrl+C to stop.")
+
+	header := titleStyle.Render("Terminal WPM") + "\n" +
+		hintStyle.Render(fmt.Sprintf("Mode: %s  •  Start typing to begin timer", m.cfg.Mode))
+
+	typedText := renderTarget(m.target, m.session.Input())
+	main := textStyle.Width(panelWidth).Render(typedText)
+	stats := statsStyle.Width(panelWidth).Render(strings.Join(statsRows, "\n"))
+	footer := hintStyle.Render("Backspace to correct • Ctrl+C to stop")
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, "", main, "", stats, "", footer)
 }
 
-func renderSummary(metrics engine.Metrics) {
-	fmt.Printf("%sTest Complete%s\n", colorCyan, colorReset)
-	fmt.Println(strings.Repeat("=", 40))
-	fmt.Printf("Final WPM: %.1f\n", metrics.WPM)
-	fmt.Printf("Accuracy: %.1f%%\n", metrics.Accuracy)
-	fmt.Printf("Time taken: %s\n", formatDuration(metrics.TimeTaken))
-	fmt.Printf("Total errors: %d\n", metrics.Errors)
-	fmt.Printf("Total typed: %d\n", metrics.TotalTyped)
-	if metrics.TimedOut {
-		fmt.Println("Result: Time limit reached")
-	} else if metrics.Cancelled {
-		fmt.Println("Result: Stopped by user")
-	} else if metrics.Completed {
-		fmt.Println("Result: Text completed")
+func (m model) viewSummary() string {
+	metrics := m.final
+	if metrics.TimeTaken == 0 {
+		metrics = m.session.Snapshot(m.now, m.timedOut, m.cancelled)
 	}
+
+	resultLabel := "Text completed"
+	if metrics.TimedOut {
+		resultLabel = "Time limit reached"
+	}
+	if metrics.Cancelled {
+		resultLabel = "Stopped by user"
+	}
+
+	body := strings.Join([]string{
+		titleStyle.Render("Typing Test Results"),
+		"",
+		fmt.Sprintf("Final WPM: %.1f", metrics.WPM),
+		fmt.Sprintf("Accuracy: %.1f%%", metrics.Accuracy),
+		fmt.Sprintf("Total errors: %d", metrics.Errors),
+		fmt.Sprintf("Time taken: %s", formatDuration(metrics.TimeTaken)),
+		fmt.Sprintf("Tier: %s", performanceTier(metrics.WPM)),
+		fmt.Sprintf("Result: %s", resultLabel),
+		"",
+		hintStyle.Render("Press Enter, q, or Esc to exit"),
+	}, "\n")
+
+	boxed := finalStyle.Render(body)
+	if m.width > 0 && m.height > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, boxed)
+	}
+	return boxed
 }
 
 func renderTarget(target string, input []rune) string {
 	targetRunes := []rune(target)
 	var builder strings.Builder
+	cursor := len(input)
 
 	for i, r := range targetRunes {
 		if i < len(input) {
 			if input[i] == r {
-				builder.WriteString(colorGreen)
-				builder.WriteRune(r)
-				builder.WriteString(colorReset)
+				builder.WriteString(correctStyle.Render(string(r)))
 			} else {
-				builder.WriteString(colorRed)
-				builder.WriteRune(r)
-				builder.WriteString(colorReset)
+				builder.WriteString(wrongStyle.Render(string(r)))
 			}
+		} else if i == cursor {
+			builder.WriteString(currentStyle.Render(string(r)))
 		} else {
-			builder.WriteString(colorGray)
-			builder.WriteRune(r)
-			builder.WriteString(colorReset)
+			builder.WriteString(remainStyle.Render(string(r)))
 		}
 	}
 
@@ -83,4 +132,17 @@ func formatDuration(d time.Duration) string {
 	minutes := total / 60
 	seconds := total % 60
 	return fmt.Sprintf("%02d:%02d", minutes, seconds)
+}
+
+func performanceTier(wpm float64) string {
+	switch {
+	case wpm < 30:
+		return "Beginner"
+	case wpm < 50:
+		return "Average"
+	case wpm < 80:
+		return "Fast"
+	default:
+		return "Elite"
+	}
 }

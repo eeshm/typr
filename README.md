@@ -3,6 +3,8 @@
 A production-style terminal typing speed test CLI in Go, built to help you learn practical Go architecture while shipping a real tool.
 
 ## Features
+- Structured TUI loop powered by Bubble Tea (smooth in-place updates)
+- Styling and color rendering via Lip Gloss
 - Random text at start (`quote` or `code` mode)
 - Starts timing on first typed character
 - Real-time key capture (no Enter needed)
@@ -10,14 +12,22 @@ A production-style terminal typing speed test CLI in Go, built to help you learn
 - Live colored feedback:
   - Green = correct
   - Red = incorrect
+  - Underlined = current target character
+  - Dim gray = remaining characters
 - Live stats:
   - WPM
   - Accuracy
+  - Elapsed time
   - Errors
 - End conditions:
   - Text completed
   - Optional time limit reached (`--time`)
 - Graceful Ctrl+C handling
+- Final centered results screen with performance tier:
+  - `<30` Beginner
+  - `30-50` Average
+  - `50-80` Fast
+  - `80+` Elite
 
 ## Install Go (Windows)
 Choose one:
@@ -58,18 +68,18 @@ go run ./cmd/terminal-wpm --mode code --time 60
 
 ## Project layout
 - `cmd/terminal-wpm/main.go` - CLI entrypoint and flag parsing
-- `internal/app` - app loop + rendering
+- `internal/app` - Bubble Tea model/update/view + Lip Gloss rendering
 - `internal/engine` - typing session state + scoring
 - `internal/content` - random quote/code text provider
-- `internal/terminal` - raw key input + terminal control
+- `internal/terminal` - legacy terminal helpers (kept for compatibility)
 
 ## Learn-Go notes
 This project demonstrates:
 - Package-based design with `internal/`
 - State management via a `Session` type
 - Time-based calculations with `time.Duration`
-- Signal handling (`os/signal`) for graceful shutdown
-- Windows terminal mode handling for real-time input
+- Event-driven terminal UI with Bubble Tea
+- Reusable styling with Lip Gloss
 
 ## Validate
 ```powershell
