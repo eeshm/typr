@@ -1,6 +1,6 @@
 # terminal-wpm
 
-A production-style terminal typing speed test CLI in Go, built to help you learn practical Go architecture while shipping a real tool.
+A production-style terminal typing speed test CLI in Go.
 
 ## Features
 - Structured TUI loop powered by Bubble Tea (smooth in-place updates)
@@ -50,18 +50,7 @@ go mod tidy
 go run ./cmd/terminal-wpm
 ```
 
-### CLI flags
-- `--mode quote` (default)
-- `--mode code`
-- `--time <seconds>` (optional time-limited run)
-- `--help`
-
-Examples:
-
-```powershell
-go run ./cmd/terminal-wpm --mode quote
-go run ./cmd/terminal-wpm --mode code --time 60
-```
+No flags are required. Launch it directly and start typing.
 
 You will be prompted each run:
 
@@ -74,7 +63,7 @@ Choose word count [30/60]:
 - `Accuracy = correct characters / total characters * 100`
 
 ## Project layout
-- `cmd/terminal-wpm/main.go` - CLI entrypoint and flag parsing
+- `cmd/terminal-wpm/main.go` - CLI entrypoint (runs directly, no required flags)
 - `internal/app` - Bubble Tea model/update/view + Lip Gloss rendering
 - `internal/engine` - typing session state + scoring
 - `internal/content` - random quote/code text provider
@@ -111,3 +100,24 @@ git push origin v1.0.0
   - macOS (`amd64`, `arm64`)
 
 Release artifacts are uploaded automatically to the GitHub Release for that tag.
+
+## Publish to npm
+An npm wrapper package is provided at `npm/terminal-wpm`.
+
+### One-time setup
+- Create an npm automation token and add it as GitHub secret: `NPM_TOKEN`
+- Ensure your GitHub release exists (tag like `v1.0.0`)
+
+### Automated publish
+When a GitHub Release is published, `.github/workflows/npm-publish.yml` publishes the wrapper package.
+
+### Package users install
+```bash
+npm i -g @eeshm/typr
+```
+
+or:
+
+```bash
+npx @eeshm/typr
+```

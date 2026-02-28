@@ -1,15 +1,15 @@
 version: 2
 
-project_name: terminal-wpm
+project_name: typr
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: terminal-wpm
+  - id: typr
     main: ./cmd/terminal-wpm
-    binary: terminal-wpm
+    binary: typr
     goos:
       - windows
       - linux
@@ -21,7 +21,7 @@ builds:
 archives:
   - id: default
     builds:
-      - terminal-wpm
+      - typr
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     formats:
       - zip

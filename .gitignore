@@ -1,6 +1,8 @@
 # Binary
 terminal-wpm.exe
 terminal-wpm
+typr.exe
+typr
 dist/
 artifacts/
 checksums.txt
@@ -23,6 +25,11 @@ Thumbs.db
 
 # Go build cache (usually outside project, but just in case)
 vendor/
+npm/**/node_modules/
+npm/**/bin/terminal-wpm
+npm/**/bin/terminal-wpm.exe
+npm/**/bin/typr
+npm/**/bin/typr.exe
 
 # Plan / prompt files
 *.prompt.md
