@@ -1,6 +1,6 @@
 {
   "name": "@eeshm/typr",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "npm wrapper for typr Go CLI",
   "license": "MIT",
   "bin": {
