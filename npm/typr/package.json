@@ -1,0 +1,27 @@
+{
+  "name": "@eeshm/typr",
+  "version": "1.0.0",
+  "description": "npm wrapper for typr Go CLI",
+  "license": "MIT",
+  "bin": {
+    "typr": "bin/typr.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16"
+  },
+  "typr": {
+    "repo": "eeshm/typer-cli"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

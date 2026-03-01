@@ -1,8 +1,8 @@
 # Binary
 terminal-wpm.exe
 terminal-wpm
-typr.exe
-typr
+/typr.exe
+/typr
 dist/
 artifacts/
 checksums.txt
@@ -29,6 +29,7 @@ vendor/
 npm/**/node_modules/
 npm/**/bin/typr
 npm/**/bin/typr.exe
+npm/**/*.tgz
 
 # Plan / prompt files
 *.prompt.md
