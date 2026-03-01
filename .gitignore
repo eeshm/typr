@@ -19,6 +19,7 @@ coverage.txt
 *.swo
 *~
 ARCHITECTURE.md
+PUBLISH_GUIDE.md
 # OS files
 Thumbs.db
 .DS_Store
