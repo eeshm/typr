@@ -1,6 +1,6 @@
 {
   "name": "@eeshm/typr",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "npm wrapper for typr Go CLI",
   "license": "MIT",
   "bin": {
@@ -19,7 +19,7 @@
     "adm-zip": "^0.5.16"
   },
   "typr": {
-    "repo": "eeshm/typer-cli"
+    "repo": "eeshm/typr"
   },
   "engines": {
     "node": ">=18"

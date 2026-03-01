@@ -65,9 +65,10 @@ async function main() {
     failWithHint('Missing repository slug (expected pkg.typr.repo)');
   }
 
-  const version = process.env.TYPR_VERSION || `v${pkg.version}`;
-  const assetName = `typr_${version}_${platform}_${arch}.zip`;
-  const url = `https://github.com/${repo}/releases/download/${version}/${assetName}`;
+  const versionTag = process.env.TYPR_VERSION || `v${pkg.version}`;
+  const assetVersion = versionTag.startsWith('v') ? versionTag.slice(1) : versionTag;
+  const assetName = `typr_${assetVersion}_${platform}_${arch}.zip`;
+  const url = `https://github.com/${repo}/releases/download/${versionTag}/${assetName}`;
 
   console.log(`[typr] Downloading ${assetName}...`);
   const zipBuffer = await requestBuffer(url);
